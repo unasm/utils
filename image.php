@@ -81,11 +81,27 @@ class Image {
             $this->saveImg($this->getData($URL) , $name);
         }
     }
+    /**
+     * 从字符流中读取图片img的地址
+     *
+     * @param   string  $str    包含了image信息的dom str
+     * @return array
+     */
+    public  function getImgUrl ($domStr)
+    {
+        preg_match_all("/\<img\s+src\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"]\s*\\\\?\s*\>/",$domStr , $matches);
+        return $matches[1];
+    }
+    public function __construct()
+    {
+        $this->getImgUrl("<p><img src = 'http://i.imgaa.com/201405/29/7f1de29e6da19d22b51c68001e7e0e54.jpg'>  sdf
+            <img src='http://i.imgaa.com/2014/05/29/7f1de29e6da19d22b51c68001e7e0e54.jpg'></p>");
+    }
 }
 $image = new Image();
 //$image->parseHTML("http://i.imgbox.com/5ktjnOJ1.jpg");
 //$image->parseHTML("http://imgbox.com/g/UaL0aW4cQH");
-$image->parseHTML("./getImage.html");
+//$image->parseHTML("./getImage.html");
 //$image->getImage("http://c4.mangafiles.com/Files/Images/140/101335/imanhua_003.png");
 //$image->getImage("http://www.w3school.com.cn/i/site_photoref.jpg");
 ?>
