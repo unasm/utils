@@ -5,10 +5,15 @@
  *    @name:       image.php
  *    @author:     unasm<1264310280@qq.com>
  *    @since :     2014-07-19 00:14:29
+ *    @todo 进行整站的扫描，从index页面进行开始，
+ *    @todo 练习php中的C扩展，保存已经获取过的链接不再进行解析
+ *    @todo curl多个进程和单个进程的阻塞
  */
 class Image {
+    const SIZE = 200;
     /**
      * 根据指定的url获取对应的图片
+     * @todo 通过添加多个curl进行图片的获取
      */
     function getData($url){
         $header[] = "Accept: image/gif, image/x-bitmap, image/jpeg, image/pjpeg";
@@ -69,33 +74,75 @@ class Image {
      * @param binary    $data  要保存的图片二进制数据
      * @param string    $name   图片的名字
      */
-    function saveImg($data , $name){
+    protected function saveImg($data , $name){
         $file = fopen($name , "w") or die("can't open file");
         fwrite($file, $data);
         fclose($file);
+        return $name;
+
     }
-    function getImage($URL , $name = -1){
+    public function getImage($URL , $name = -1){
+        $file = "";
         if($name === -1){
-            $this->saveImg($this->getData($URL) , basename($URL));
+            $file = $this->saveImg($this->getData($URL) , basename($URL));
         }else{
-            $this->saveImg($this->getData($URL) , $name);
+            $file = $this->saveImg($this->getData($URL) , $name);
         }
     }
     /**
-     * 从字符流中读取图片img的地址
+     * 在下载完毕一个图片之后，检验图片是不是符合我们的规格要求，以免错下
+     *
+     * @return void
+     */
+    public  function checkAfterDownLoad ($name)
+    {
+        $info = getimagesize($name);
+        if($info && $info[1] > self::SIZE && $info[0] > self::SIZE){
+            echo "yes";
+        }else{
+            if(unlink($name)){
+                echo "delete success";
+            }else{
+                echo "delete failed";
+            }
+        }
+    }
+    /**
+     * 从 字符/dom 流中读取图片img的地址
      *
      * @param   string  $str    包含了image信息的dom str
      * @return array
      */
     public  function getImgUrl ($domStr)
     {
-        preg_match_all("/\<img\s+src\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"]\s*\\\\?\s*\>/",$domStr , $matches);
-        return $matches[1];
+        preg_match_all("/\<img\s+src\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$domStr , $matches);
+        return $this->checkImgUrl($matches[1]);
+    }
+
+    /**
+     * 检验图片before Download
+     */
+    protected function checkImgUrl($arr , $prefix = "jpg")
+    {
+        $ret = array();
+        foreach($arr as $img){
+            $pfx = substr($img ,strlen($img) - 3);
+            if(substr($img , 0, 4) === "http" && $pfx === $prefix){
+                $ret[]= $img;
+            }
+        }
+        return $ret;
     }
     public function __construct()
     {
-        $this->getImgUrl("<p><img src = 'http://i.imgaa.com/201405/29/7f1de29e6da19d22b51c68001e7e0e54.jpg'>  sdf
-            <img src='http://i.imgaa.com/2014/05/29/7f1de29e6da19d22b51c68001e7e0e54.jpg'></p>");
+        /*
+        $domStr = $this->getData("http://www.caoqun5566.com/bbs/index.php?app=forum&act=threadview&tid=361598");
+        $imgs = $this->getImgUrl($domStr);
+        foreach($imgs as $img){
+            $this->getImage($img);
+        }
+         */
+        $this->checkAfterDownLoad("/var/www/html/utils/psb.jpg");
     }
 }
 $image = new Image();
