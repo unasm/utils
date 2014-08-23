@@ -11,8 +11,7 @@
  */
 class Image {
     const SIZE = 200;
-    const BASE = "http://www.caoqun5566.com/bbs";
-    const reGet = 3;
+    const BASE = "/home/tianyi//Downloads/ab.html";
     /**
      * 根据指定的url获取对应的图片
      * @todo 通过添加多个curl进行图片的获取
@@ -38,6 +37,7 @@ class Image {
         if(curl_errno($curl)){
             echo "curl error: " . curl_error($curl);
         }else{
+            echo "yes";
             $opt = ob_get_contents();
         }
         ob_end_clean();
@@ -90,29 +90,21 @@ class Image {
     }
     /**
     * 根据对应的url获取图片
-    * @todo 增加检验，和重新获取的功能
+    *
     */
     public function getImage($URL , $name = -1){
         $file = "";
         if($name === -1){
-            $name = basename($URL);
+            $file = $this->saveImg($this->getData($URL) , basename($URL));
+        }else{
+            $file = $this->saveImg($this->getData($URL) , $name);
         }
-        for($i = 0;$i < self::reGet;$i++){
-            $data = $this->getData($URL , $name);
-            if($data){
-                $this->saveImg($data , $name);
-                $this->checkAfterDownLoad($name);
-                return true;
-            }
-        }
-        echo ("多次获取图片失败");
-        return false;
     }
     /**
      * 在下载完毕一个图片之后，检验图片是不是符合我们的规格要求，以免错下
      *
      */
-    protected  function checkAfterDownLoad ($name)
+    public  function checkAfterDownLoad ($name)
     {
         $info = getimagesize($name);
         if($info && $info[1] > self::SIZE && $info[0] > self::SIZE){
@@ -131,16 +123,12 @@ class Image {
      * @param   string  $str    包含了image信息的dom str
      * @return array
      */
-    protected  function getImgUrl ($domStr)
+    public  function getImgUrl ($domStr)
     {
-        preg_match_all("/\<img[^>]+src\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$domStr , $matches);
-        $imgs =  $this->checkImgUrl($matches[1]);
-        foreach($imgs as $img){
-            if(!$this->getImage($img)){
-                //error("{$img}没有保存成功");
-            }
-        }
+        preg_match_all("/\<img\s+src\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$domStr , $matches);
+        return $this->checkImgUrl($matches[1]);
     }
+
     /**
      * 检验图片before Download
      */
@@ -148,59 +136,35 @@ class Image {
     {
         $ret = array();
         foreach($arr as $img){
-
             $pfx = substr($img ,strlen($img) - 3);
             if(substr($img , 0, 4) === "http" && $pfx === $prefix){
                 $ret[]= $img;
-            }else if(substr($img, 0,2) === './'){
-                //有可能是相对路径，虽然这个案例中是不应该的，但是考虑到实用性，应该添加相对路径
-                $ret[] = self::BASE . $img;
             }
         }
         return $ret;
     }
 
     /**
-     * 检查href是不是曾经搜索过
+     * 根据根据对应的url获取并解析dom，提取其中的a link 得到其中的base部分
      *
-     * @return boolen
-     * @todo 通过其他的算法优化性能
-     */
-    protected   function isHrefBeen($href)
-    {
-        static $been = array();
-        foreach($been as $url){
-            if($url === $href)return false;
-        }
-        $been[] = $href;
-        return true;
-    }
-    /**
-     * 根据根据对应的url获取并解析dom，提取其中的a link ,根据其中的base 和是否曾经检验过来作为是否进入并且抓取的依据
-     * @param string $url ,需要进入，并且进行解析得到子url的url
-     * @param int    $deep 搜索的深度，以免发生无法控制的事情
      * @return array
      */
-    public  function getHtmlByUrl($url , $deep)
+    public  function getHtmlByUrl($url)
     {
-        if(!$deep)return ;
         //$data = $this->getData($url);
         $data = file_get_contents($url ,FILE_USE_INCLUDE_PATH);
-        //获取其中的图片
-        $this->getImgUrl($data);
-        preg_match_all("/\<a\s+href\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$data, $matches);
-        $len = strlen(self::BASE);
-        $toSea = array();
-        //只保留base站以内的链接
-        foreach($matches[1] as $href){
-            if((substr($href , 0,$len) === self::BASE) && ($this->isHrefBeen($href))){
-                $this->getHtmlByUrl($href , $deep -1);
-            }
+        preg_match_all("/\<a\s+href\s*\=\s*[\'|\"]([^\'\"\>\]+)[\'|\"][^>]*\>/",$data , $matches);
+        $len = strlen(slef::BASE);
+        forea($matches[1] as $href){
+            if(substr($href , 0,len) == self::BASE){
+                toSea[] = $href;
         }
+}
+        var_dump($matches[1]);
     }
     public function __construct()
     {
-        $flag = $this->getHtmlByUrl("/home/tianyi/Downloads/ab.html" , 1);
+        $flag = $this->getHtmlByUrl(self::BASE);
     }
 }
 $image = new Image();
