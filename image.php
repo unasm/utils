@@ -27,11 +27,12 @@ class Image {
      * @todo 通过添加多个curl进行图片的获取
      */
     protected function getData($url){
+
+        $curl = curl_init();
+        /*
         $header[] = "Accept: image/gif, image/x-bitmap, image/jpeg, image/pjpeg";
         $header[] = 'Connection: Keep-Alive';
         $header[] = 'Content-type: application/x-www-form-urlencoded;charset=UTF-8';
-
-        $curl = curl_init();
 
         curl_setopt($curl , CURLOPT_URL, $url);
         //curl_setopt($curl , CURLOPT_RETURNTRANSFER , 1);
@@ -41,6 +42,8 @@ class Image {
         $userAgent ='Mozilla/5.0 (X11; Linux x86_64) AppleWebit/537.36 ()HTML, like Gecko) Ubuntu Chromium/34.0.1847.116 Chrome/34.0.1847.116 Safari/537.36';
         curl_setopt($curl , CURLOPT_USERAGENT , $userAgent);
         curl_setopt($curl , CURLOPT_HTTPHEADER , $header);
+         */
+        $this->curlOptSet($curl);
         ob_start();
         curl_exec($curl);
         $opt = false;
@@ -52,6 +55,54 @@ class Image {
         ob_end_clean();
         curl_close($curl);
         return $opt;
+    }
+
+    /**
+     * 对curl进行初始化
+     *
+     * @return void
+     */
+    protected function curlOptSet (&$curl)
+    {
+        static $header = array();
+        $header[] = "Accept: image/gif, image/x-bitmap, image/jpeg, image/pjpeg";
+        $header[] = 'Connection: Keep-Alive';
+        $header[] = 'Content-type: application/x-www-form-urlencoded;charset=UTF-8';
+        curl_setopt($curl , CURLOPT_URL, $url);
+        //curl_setopt($curl , CURLOPT_RETURNTRANSFER , 1);
+        curl_setopt($curl , CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($curl , CURLOPT_CUSTOMREQUEST,'GET');
+
+        $userAgent ='Mozilla/5.0 (X11; Linux x86_64) AppleWebit/537.36 ()HTML, like Gecko) Ubuntu Chromium/34.0.1847.116 Chrome/34.0.1847.116 Safari/537.36';
+        curl_setopt($curl , CURLOPT_USERAGENT , $userAgent);
+        curl_setopt($curl , CURLOPT_HTTPHEADER , $header);
+    }
+    /**
+     * 多线程，获取数据
+     *
+     * @return array
+     */
+    protected function curl_multi($urls)
+    {
+        $ch = array();
+        $mh = curl_multi_init();
+        foreach($urls as $url){
+            $tmp = curl_init();
+            curl_setopt($tmp, CURLOPT_URL , $url);
+            $this->curlOptSet($tmp);
+            $ch[] = $tmp;
+            curl_multi_add_handle($mh , $tmp);
+        }
+        do{
+            $mrc = curl_multi_exec($mh , $active);
+        }while($mrc === CURLM_CALL_MULTI_PERFORM);
+        while($active && $mrc === CURLM_OK){
+            if(curl_multi_select($mh) != -1){
+                do{
+                    $mrc = curl_multi_exec($mh , $active);
+                }while($active == CURLM_CALL_MULTI_PERFORM);
+            }
+        }
     }
     /**
      * 解析HTML 第二种方案
