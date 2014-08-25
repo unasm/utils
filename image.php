@@ -10,9 +10,18 @@
  *    @todo curl多个进程和单个进程的阻塞
  */
 class Image {
+
+    //最小允许的图片大小
     const SIZE = 200;
-    const BASE = "http://www.caoqun5566.com/bbs";
+
+
+    //网站的根目录
+    const BASE = "http://www.caoqun5566.com/bbs/";
+
+    //重新获取数据的次数
     const reGet = 3;
+    var $imgPath;
+    // image 保存路径
     /**
      * 根据指定的url获取对应的图片
      * @todo 通过添加多个curl进行图片的获取
@@ -97,15 +106,24 @@ class Image {
         if($name === -1){
             $name = basename($URL);
         }
+        $name = $this->imgPath . $name ;
+        if(file_exists($name)){
+            echo "url为:{$URL}且name为{$name}已经存在了";
+            return;
+        }
         for($i = 0;$i < self::reGet;$i++){
-            $data = $this->getData($URL , $name);
+            $data = trim($this->getData($URL , $name));
+            //如果得到了html文档，则不再保存，返回错误
+            if(preg_match('/.*\<\/html\>$/' , $data)){
+                echo "非img文件\n";
+                return false;
+            }
             if($data){
                 $this->saveImg($data , $name);
                 $this->checkAfterDownLoad($name);
                 return true;
             }
         }
-        echo ("多次获取图片失败");
         return false;
     }
     /**
@@ -135,9 +153,12 @@ class Image {
     {
         preg_match_all("/\<img[^>]+src\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$domStr , $matches);
         $imgs =  $this->checkImgUrl($matches[1]);
+        //$imgs = array("http://www.masterporn.me/images/fv8hpmfdm0rahfe53q6g.jpg");
+        var_dump($imgs);
         foreach($imgs as $img){
             if(!$this->getImage($img)){
                 //error("{$img}没有保存成功");
+                echo ("{$img}没有保存成功");
             }
         }
     }
@@ -150,7 +171,8 @@ class Image {
         foreach($arr as $img){
 
             $pfx = substr($img ,strlen($img) - 3);
-            if(substr($img , 0, 4) === "http" && $pfx === $prefix){
+            if($pfx !== $prefix)continue;
+            if(substr($img , 0, 4) === "http"){
                 $ret[]= $img;
             }else if(substr($img, 0,2) === './'){
                 //有可能是相对路径，虽然这个案例中是不应该的，但是考虑到实用性，应该添加相对路径
@@ -173,6 +195,7 @@ class Image {
             if($url === $href)return false;
         }
         $been[] = $href;
+        //echo "没有到过";
         return true;
     }
     /**
@@ -190,17 +213,40 @@ class Image {
         $this->getImgUrl($data);
         preg_match_all("/\<a\s+href\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$data, $matches);
         $len = strlen(self::BASE);
-        $toSea = array();
+        //$toSea = array();
         //只保留base站以内的链接
         foreach($matches[1] as $href){
-            if((substr($href , 0,$len) === self::BASE) && ($this->isHrefBeen($href))){
-                $this->getHtmlByUrl($href , $deep -1);
+            //echo $href . "<br/>\n";
+            if(substr($href , 0 ,7) != 'http://'){
+                //检验是不是相对路径
+                $href = self::BASE .  $href;
+            }else if(!($this->checkHref($href , $len) && $this->isHrefBeen($href))){
+                //不是相对路径情况下，站外href不考虑
+                //echo "{$href}是不可以的";
+                continue;
             }
+            $this->getHtmlByUrl($href , $deep -1);
         }
+    }
+
+    /**
+     * 检验是不是想要的站内链接
+     *
+     * @return boolen
+     */
+    protected function checkHref ($href , $len)
+    {
+        //其实这样不一定合适，因为二级域名也可以啊
+        if(substr($href , 0 , $len) === self::BASE){
+            //echo "相同域名";
+            return true;
+        }
+        return false;
     }
     public function __construct()
     {
-        $flag = $this->getHtmlByUrl("/home/tianyi/Downloads/ab.html" , 1);
+        $this->imgPath = rtrim(dirname(__FILE__)  , '/') . "/image/";
+        $flag = $this->getHtmlByUrl("http://www.caoqun5566.com/bbs/", 2);
     }
 }
 $image = new Image();
