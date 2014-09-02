@@ -27,9 +27,9 @@ class Image {
      * @todo 通过添加多个curl进行图片的获取
      */
     protected function getData($url){
-
         $curl = curl_init();
         curl_setopt($curl , CURLOPT_URL, $url);
+        /*
         $header[] = "Accept: image/gif, image/x-bitmap, image/jpeg, image/pjpeg";
         $header[] = 'Connection: Keep-Alive';
         $header[] = 'Content-type: application/x-www-form-urlencoded;charset=UTF-8';
@@ -41,7 +41,8 @@ class Image {
         $userAgent ='Mozilla/5.0 (X11; Linux x86_64) AppleWebit/537.36 ()HTML, like Gecko) Ubuntu Chromium/34.0.1847.116 Chrome/34.0.1847.116 Safari/537.36';
         curl_setopt($curl , CURLOPT_USERAGENT , $userAgent);
         curl_setopt($curl , CURLOPT_HTTPHEADER , $header);
-        //$this->curlOptSet($curl);
+         */
+        $this->curlOptSet($curl);
         ob_start();
         curl_exec($curl);
         $opt = false;
@@ -66,7 +67,7 @@ class Image {
         $header[] = "Accept: image/gif, image/x-bitmap, image/jpeg, image/pjpeg";
         $header[] = 'Connection: Keep-Alive';
         $header[] = 'Content-type: application/x-www-form-urlencoded;charset=UTF-8';
-        //curl_setopt($curl , CURLOPT_RETURNTRANSFER , 1);
+        curl_setopt($curl , CURLOPT_RETURNTRANSFER , 0);
         curl_setopt($curl , CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($curl , CURLOPT_CUSTOMREQUEST,'GET');
 
@@ -86,6 +87,7 @@ class Image {
         foreach($urls as $url){
             $tmp = curl_init();
             curl_setopt($tmp, CURLOPT_URL , $url);
+            curl_setopt($tmp, CURLOPT_HEADER,0);
             $this->curlOptSet($tmp);
             $ch[] = $tmp;
             curl_multi_add_handle($mh , $tmp);
@@ -98,12 +100,11 @@ class Image {
         }while($mrc == CURLM_CALL_MULTI_PERFORM);
 
         while($active && $mrc == CURLM_OK){
-            if(curl_multi_select($mh) != -1){
+            //if(curl_multi_select($mh) != -1){
                 do{
                     $mrc = curl_multi_exec($mh , $active);
-                    echo $mrc . "\n";
                 }while($active == CURLM_CALL_MULTI_PERFORM);
-            }
+            //}
         }
                 //获取对应的数据，移除句柄
         for($i = 0,$len = count($ch);$i  < $len;$i++){
@@ -112,8 +113,7 @@ class Image {
             }else{
                 $this->saveImg(curl_multi_getcontent($ch[$i]) , $this->imgPath . basename($urls[$i]));
             }
-            curl_multi_remove_handle($ch[$i]);
-        //curl_close($ch[$i]);
+            curl_multi_remove_handle($mh , $ch[$i]);
         }
         curl_multi_close($mh);
     }
@@ -160,13 +160,13 @@ class Image {
                 return false;
             }
             if($data){
-                $this->saveImg($data , $name);
                 $file = fopen($name , "w") or die("can't open file");
                 fwrite($file, $data);
                 fclose($file);
                 $this->checkAfterDownLoad($name);
                 return true;
             }
+            return false;
         }
         /**
          * 根据对应的url获取图片
@@ -183,9 +183,12 @@ class Image {
             }
             for($i = 0;$i < self::reGet;$i++){
                 $data = trim($this->getData($URL , $name));
-                $this->saveImg($data , $name);
+                if($data && $this->saveImg($data , $name)){
+                    return true;
+                }
                 //如果得到了html文档，则不再保存，返回错误
             }
+            echo "下载失败\n";
             return false;
         }
                 /**
@@ -260,36 +263,34 @@ class Image {
                 //echo "没有到过";
                 return true;
                 }
-                /**
-                 * 根据根据对应的url获取并解析dom，提取其中的a link ,根据其中的base 和是否曾经检验过来作为是否进入并且抓取的依据
-                 * @param string $url ,需要进入，并且进行解析得到子url的url
-                 * @param int    $deep 搜索的深度，以免发生无法控制的事情
-                 * @return array
-                 */
-                public  function getHtmlByUrl($url , $deep)
-                {
-                    if(!$deep)return ;
-                    //$data = $this->getData($url);
-                    $data = file_get_contents($url ,FILE_USE_INCLUDE_PATH);
-                    //获取其中的图片
-                    $this->getImgUrl($data);
-                    preg_match_all("/\<a\s+href\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$data, $matches);
-                    $len = strlen(self::BASE);
-                    //$toSea = array();
-                    //只保留base站以内的链接
-                    foreach($matches[1] as $href){
-                        //echo $href . "<br/>\n";
-                        if(substr($href , 0 ,7) != 'http://'){
-                            //检验是不是相对路径
-                            $href = self::BASE .  $href;
-                }else if(!($this->checkHref($href , $len) && $this->isHrefBeen($href))){
+            /**
+             * 根据根据对应的url获取并解析dom，提取其中的a link ,根据其中的base 和是否曾经检验过来作为是否进入并且抓取的依据
+             * @param string $url ,需要进入，并且进行解析得到子url的url
+             * @param int    $deep 搜索的深度，以免发生无法控制的事情
+             * @return array
+             */
+            public  function getHtmlByUrl($url , $deep)
+            {
+                if(!$deep)return ;
+                //$data = $this->getData($url);
+                $data = file_get_contents($url ,FILE_USE_INCLUDE_PATH);
+                //获取其中的图片
+                $this->getImgUrl($data);
+                preg_match_all("/\<a\s+href\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$data, $matches);
+                $len = strlen(self::BASE);
+                //$toSea = array();
+                //只保留base站以内的链接
+                foreach($matches[1] as $href){
+                    if(substr($href , 0 ,7) != 'http://'){
+                        //检验是不是相对路径
+                        $href = self::BASE .  $href;
+                    }else if(!($this->checkHref($href , $len) && $this->isHrefBeen($href))){
                     //不是相对路径情况下，站外href不考虑
-                    //echo "{$href}是不可以的";
-                    continue;
+                        continue;
+                    }
+                    $this->getHtmlByUrl($href , $deep -1);
                 }
-                $this->getHtmlByUrl($href , $deep -1);
-                }
-                }
+            }
 
                 /**
                  * 检验是不是想要的站内链接
@@ -305,6 +306,45 @@ class Image {
                 }
                 return false;
                 }
+
+                /**
+                 * curl的php.net样本拷贝
+                 *
+                 */
+                public function exampleCurlMulti($arr)
+                {
+                     $ch1 = curl_init();
+                     $ch2 = curl_init();
+                     // set URL and other appropriate options
+                     curl_setopt($ch1, CURLOPT_URL,$arr[0]);
+                     curl_setopt($ch1, CURLOPT_HEADER, 0);
+                     curl_setopt($ch2, CURLOPT_URL, $arr[1]);
+                     curl_setopt($ch2, CURLOPT_HEADER, 0);
+
+                     //create the multiple cURL handle
+                     $mh = curl_multi_init();
+
+                     //add the two handles
+                     curl_multi_add_handle($mh,$ch1);
+                     curl_multi_add_handle($mh,$ch2);
+                     $active = null;
+                     //execute the handles
+                    do {
+                         $mrc = curl_multi_exec($mh, $active);
+                    } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+
+                    while ($active && $mrc == CURLM_OK) {
+                            do {
+                                $mrc = curl_multi_exec($mh, $active);
+                            } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+                    }
+                     //close the handles
+                    $data2 = curl_multi_getcontent($ch2);
+                    $data1 = curl_multi_getcontent($ch1);
+                     curl_multi_remove_handle($mh, $ch1);
+                     curl_multi_remove_handle($mh, $ch2);
+                     curl_multi_close($mh);
+                }
                 /**
                  * 设置一些初始化变量
                  *
@@ -318,12 +358,13 @@ class Image {
                     $this->init();
                     //$flag = $this->getHtmlByUrl("http://www.caoqun5566.com/bbs/", 2);
                     $arr = array(
-                        "http://immage.biz/images/2013/12/29/DKOjAlcyXQ.jpg","http://immage.biz/images/2013/12/29/ShdAnl.jpg","http://sharenxs.com/photos/2013/12/28/52be67fb178db/tc_448saki017.jpg"
+                        "http://98.126.83.114/20140902/2agu4oqwdmj9369.jpg","http://98.126.83.114/20140902/wyn230rvq3m9372.jpg"
                     );
-                    //$this->curl_multi($arr);
-                    $this->getImage($arr[0]);
-                    $this->getImage($arr[1]);
-                    $this->getImage($arr[2]);
+                    //$this->exampleCurlMulti($arr);
+                    $this->curl_multi($arr);
+                    //$this->getImage($arr[1]);
+                    //$this->getImage($arr[2]);
+                    //echo $this->getData('http://www.baidu.com');
                 }
 }
                 $image = new Image();
