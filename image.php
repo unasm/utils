@@ -54,102 +54,60 @@ class Image {
         ob_end_clean();
         curl_close($curl);
         return $opt;
-    }
+        }
 
-    /**
-     * 对curl进行初始化
-     *
-     * @return void
-     */
-    protected function curlOptSet (&$curl)
-    {
-        static $header = array();
-        $header[] = "Accept: image/gif, image/x-bitmap, image/jpeg, image/pjpeg";
-        $header[] = 'Connection: Keep-Alive';
-        $header[] = 'Content-type: application/x-www-form-urlencoded;charset=UTF-8';
-        curl_setopt($curl , CURLOPT_RETURNTRANSFER , 0);
-        curl_setopt($curl , CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($curl , CURLOPT_CUSTOMREQUEST,'GET');
+        /**
+         * 对curl进行初始化
+         *
+         * @return void
+         */
+        protected function curlOptSet (&$curl)
+        {
+            static $header = array();
+            $header[] = "Accept: image/gif, image/x-bitmap, image/jpeg, image/pjpeg";
+            $header[] = 'Connection: Keep-Alive';
+            $header[] = 'Content-type: application/x-www-form-urlencoded;charset=UTF-8';
+            curl_setopt($curl , CURLOPT_RETURNTRANSFER , 0);
+            curl_setopt($curl , CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($curl , CURLOPT_CUSTOMREQUEST,'GET');
 
-        $userAgent ='Mozilla/5.0 (X11; Linux x86_64) AppleWebit/537.36 ()HTML, like Gecko) Ubuntu Chromium/34.0.1847.116 Chrome/34.0.1847.116 Safari/537.36';
-        curl_setopt($curl , CURLOPT_USERAGENT , $userAgent);
-        curl_setopt($curl , CURLOPT_HTTPHEADER , $header);
-    }
-    /**
-     * 多线程，获取数据
-     *
-     * @return array
-     */
-    protected function curl_multi($urls)
-    {
-        $ch = array();
-        $mh = curl_multi_init();
-        foreach($urls as $url){
-            $tmp = curl_init();
-            curl_setopt($tmp, CURLOPT_URL , $url);
-            curl_setopt($tmp, CURLOPT_HEADER,0);
-            $this->curlOptSet($tmp);
-            $ch[] = $tmp;
-            curl_multi_add_handle($mh , $tmp);
+            $userAgent ='Mozilla/5.0 (X11; Linux x86_64) AppleWebit/537.36 ()HTML, like Gecko) Ubuntu Chromium/34.0.1847.116 Chrome/34.0.1847.116 Safari/537.36';
+            curl_setopt($curl , CURLOPT_USERAGENT , $userAgent);
+            curl_setopt($curl , CURLOPT_HTTPHEADER , $header);
         }
-        //发送数据
-        //@todo 可以检测一下执行时间
-        $active = null;
-        do{
-            $mrc = curl_multi_exec($mh , $active);
-        }while($mrc == CURLM_CALL_MULTI_PERFORM);
-
-        while($active && $mrc == CURLM_OK){
-            //if(curl_multi_select($mh) != -1){
-                do{
-                    $mrc = curl_multi_exec($mh , $active);
-                }while($active == CURLM_CALL_MULTI_PERFORM);
-            //}
+        /**
+         * 解析HTML 第二种方案
+         *
+         * @return array
+         * @author <doujiamin@qq.com>
+         */
+        public function parseHTML2 ($url)
+        {
+            $html = file_get_html($url);
+            $div = $html->find("div[id = 'gallery-view-content']");
+            var_dump($div);
+            //echo $div;
         }
-                //获取对应的数据，移除句柄
-        for($i = 0,$len = count($ch);$i  < $len;$i++){
-            if(curl_errno($ch[$i])){
-                echo "下载出错,错误码为" . curl_error($ch[$i]) . "，对应的url为{$urls[$i]}\n<br/>";
-            }else{
-                $this->saveImg(curl_multi_getcontent($ch[$i]) , $this->imgPath . basename($urls[$i]));
-            }
-            curl_multi_remove_handle($mh , $ch[$i]);
+        /**
+         * 解析html文档，获取对应的href链接
+         */
+        public function parseHTML ($URL)
+        {
+            include "HtmlParserModel.php";
+            $html = file_get_contents($URL);
+            $parser = new HtmlParserModel();
+            $parser->parseStr($html);
+            $div = $parser->find("div#gallery-view-content");
+            $cnt = 0;
+            foreach ($div[0]->child  as $node ) {
+                if(is_array($node->attribute) && array_key_exists("href" , $node->attribute)){
+                    if(($cnt % 3) === 0 ){
+                        $this->getImage("http://i.imgbox.com" . $node->attribute['href'] . ".jpg" , $cnt . '.jpg');
         }
-        curl_multi_close($mh);
-    }
-    /**
-     * 解析HTML 第二种方案
-     *
-     * @return array
-     * @author <doujiamin@qq.com>
-     */
-    public function parseHTML2 ($url)
-    {
-        $html = file_get_html($url);
-        $div = $html->find("div[id = 'gallery-view-content']");
-        var_dump($div);
-        //echo $div;
-    }
-    /**
-     * 解析html文档，获取对应的href链接
-     */
-    public function parseHTML ($URL)
-    {
-        include "HtmlParserModel.php";
-        $html = file_get_contents($URL);
-        $parser = new HtmlParserModel();
-        $parser->parseStr($html);
-        $div = $parser->find("div#gallery-view-content");
-        $cnt = 0;
-        foreach ($div[0]->child  as $node ) {
-            if(is_array($node->attribute) && array_key_exists("href" , $node->attribute)){
-                if(($cnt % 3) === 0 ){
-                    $this->getImage("http://i.imgbox.com" . $node->attribute['href'] . ".jpg" , $cnt . '.jpg');
-                }
-                $cnt++;
-            }
+        $cnt++;
         }
-    }
+        }
+        }
         /**
          * @param binary    $data  要保存的图片二进制数据
          * @param string    $name   图片的名字
@@ -175,202 +133,200 @@ class Image {
         public function getImage($URL , $name = -1){
             if($name === -1){
                 $name = basename($URL);
-            }
-            $name = $this->imgPath . $name ;
-            if(file_exists($name)){
-                echo "url为:{$URL}且name为{$name}已经存在了";
-                return;
-            }
-            for($i = 0;$i < self::reGet;$i++){
-                $data = trim($this->getData($URL , $name));
-                if($data && $this->saveImg($data , $name)){
-                    return true;
-                }
-                //如果得到了html文档，则不再保存，返回错误
-            }
-            echo "下载失败\n";
-            return false;
         }
-                /**
-                 * 在下载完毕一个图片之后，检验图片是不是符合我们的规格要求，以免错下
-                 *
-                 */
-                protected  function checkAfterDownLoad ($name)
-                {
-                    $info = getimagesize($name);
-                    if($info && $info[1] > self::SIZE && $info[0] > self::SIZE){
-                        return true;
-                    }else{
-                        if(unlink($name)){
-                            return false;
-                        }else{
-                        throw new Exception("无法删除不合适的下载文件" . $name);
-                        }
-                    }
-                }
-                /**
-                 * 从 字符/dom 流中读取图片img的地址
-                 *
-                 * @param   string  $str    包含了image信息的dom str
-                 * @return array
-                 */
-                protected  function getImgUrl ($domStr)
-                {
-                    preg_match_all("/\<img[^>]+src\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$domStr , $matches);
-                    $imgs =  $this->checkImgUrl($matches[1]);
-                    //$imgs = array("http://www.masterporn.me/images/fv8hpmfdm0rahfe53q6g.jpg");
-                    var_dump($imgs);
-                    foreach($imgs as $img){
-                        if(!$this->getImage($img)){
-                            //error("{$img}没有保存成功");
-                            echo ("{$img}没有保存成功");
-                }
-                }
-                }
-                /**
-                 * 检验图片before Download
-                 */
-                protected function checkImgUrl($arr , $prefix = "jpg")
-                {
-                    $ret = array();
-                    foreach($arr as $img){
-
-                        $pfx = substr($img ,strlen($img) - 3);
-                        if($pfx !== $prefix)continue;
-                        if(substr($img , 0, 4) === "http"){
-                            $ret[]= $img;
-                }else if(substr($img, 0,2) === './'){
-                    //有可能是相对路径，虽然这个案例中是不应该的，但是考虑到实用性，应该添加相对路径
-                    $ret[] = self::BASE . $img;
-                }
-                }
-                return $ret;
-                }
-
-                /**
-                 * 检查href是不是曾经搜索过
-                 *
-                 * @return boolen
-                 * @todo 通过其他的算法优化性能
-                 */
-                protected   function isHrefBeen($href)
-                {
-                    static $been = array();
-                    foreach($been as $url){
-                        if($url === $href)return false;
-                }
-                $been[] = $href;
-                //echo "没有到过";
+        $name = $this->imgPath . $name ;
+        if(file_exists($name)){
+            echo "url为:{$URL}且name为{$name}已经存在了";
+            return;
+        }
+        for($i = 0;$i < self::reGet;$i++){
+            $data = trim($this->getData($URL , $name));
+            if($data && $this->saveImg($data , $name)){
                 return true;
-                }
-            /**
-             * 根据根据对应的url获取并解析dom，提取其中的a link ,根据其中的base 和是否曾经检验过来作为是否进入并且抓取的依据
-             * @param string $url ,需要进入，并且进行解析得到子url的url
-             * @param int    $deep 搜索的深度，以免发生无法控制的事情
-             * @return array
-             */
-            public  function getHtmlByUrl($url , $deep)
-            {
-                if(!$deep)return ;
-                //$data = $this->getData($url);
-                $data = file_get_contents($url ,FILE_USE_INCLUDE_PATH);
-                //获取其中的图片
-                $this->getImgUrl($data);
-                preg_match_all("/\<a\s+href\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$data, $matches);
-                $len = strlen(self::BASE);
-                //$toSea = array();
-                //只保留base站以内的链接
-                foreach($matches[1] as $href){
-                    if(substr($href , 0 ,7) != 'http://'){
-                        //检验是不是相对路径
-                        $href = self::BASE .  $href;
-                    }else if(!($this->checkHref($href , $len) && $this->isHrefBeen($href))){
-                    //不是相对路径情况下，站外href不考虑
-                        continue;
-                    }
-                    $this->getHtmlByUrl($href , $deep -1);
-                }
-            }
-
-                /**
-                 * 检验是不是想要的站内链接
-                 *
-                 * @return boolen
-                 */
-                protected function checkHref ($href , $len)
-                {
-                    //其实这样不一定合适，因为二级域名也可以啊
-                    if(substr($href , 0 , $len) === self::BASE){
-                        //echo "相同域名";
-                        return true;
-                }
+        }
+        //如果得到了html文档，则不再保存，返回错误
+        }
+        echo "下载失败\n";
+        return false;
+        }
+        /**
+         * 在下载完毕一个图片之后，检验图片是不是符合我们的规格要求，以免错下
+         *
+         */
+        protected  function checkAfterDownLoad ($name)
+        {
+            $info = getimagesize($name);
+            if($info && $info[1] > self::SIZE && $info[0] > self::SIZE){
+                return true;
+        }else{
+            if(unlink($name)){
                 return false;
-                }
+        }else{
+            throw new Exception("无法删除不合适的下载文件" . $name);
+        }
+        }
+        }
+        /**
+         * 从 字符/dom 流中读取图片img的地址
+         *
+         * @param   string  $str    包含了image信息的dom str
+         * @return array
+         */
+        protected  function getImgUrl ($domStr)
+        {
+            preg_match_all("/\<img[^>]+src\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$domStr , $matches);
+            $imgs =  $this->checkImgUrl($matches[1]);
+            //$imgs = array("http://www.masterporn.me/images/fv8hpmfdm0rahfe53q6g.jpg");
+            var_dump($imgs);
+            foreach($imgs as $img){
+                if(!$this->getImage($img)){
+                    //error("{$img}没有保存成功");
+                    echo ("{$img}没有保存成功");
+    }
+    }
+    }
+    /**
+     * 检验图片before Download
+     */
+    protected function checkImgUrl($arr , $prefix = "jpg")
+    {
+        $ret = array();
+        foreach($arr as $img){
 
-                /**
-                 * curl的php.net样本拷贝
-                 *
-                 */
-                public function exampleCurlMulti($arr)
-                {
-                     $ch1 = curl_init();
-                     $ch2 = curl_init();
-                     // set URL and other appropriate options
-                     curl_setopt($ch1, CURLOPT_URL,$arr[0]);
-                     curl_setopt($ch1, CURLOPT_HEADER, 0);
-                     curl_setopt($ch2, CURLOPT_URL, $arr[1]);
-                     curl_setopt($ch2, CURLOPT_HEADER, 0);
+            $pfx = substr($img ,strlen($img) - 3);
+            if($pfx !== $prefix)continue;
+            if(substr($img , 0, 4) === "http"){
+                $ret[]= $img;
+    }else if(substr($img, 0,2) === './'){
+        //有可能是相对路径，虽然这个案例中是不应该的，但是考虑到实用性，应该添加相对路径
+        $ret[] = self::BASE . $img;
+    }
+    }
+    return $ret;
+    }
 
-                     //create the multiple cURL handle
-                     $mh = curl_multi_init();
+    /**
+     * 检查href是不是曾经搜索过
+     *
+     * @return boolen
+     * @todo 通过其他的算法优化性能
+     */
+    protected   function isHrefBeen($href)
+    {
+        static $been = array();
+        foreach($been as $url){
+            if($url === $href)return false;
+    }
+    $been[] = $href;
+    //echo "没有到过";
+    return true;
+    }
+    /**
+     * 根据根据对应的url获取并解析dom，提取其中的a link ,根据其中的base 和是否曾经检验过来作为是否进入并且抓取的依据
+     * @param string $url ,需要进入，并且进行解析得到子url的url
+     * @param int    $deep 搜索的深度，以免发生无法控制的事情
+     * @return array
+     */
+    public  function getHtmlByUrl($url , $deep)
+    {
+        if(!$deep)return ;
+        //$data = $this->getData($url);
+        $data = file_get_contents($url ,FILE_USE_INCLUDE_PATH);
+        //获取其中的图片
+        $this->getImgUrl($data);
+        preg_match_all("/\<a\s+href\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$data, $matches);
+        $len = strlen(self::BASE);
+        //$toSea = array();
+        //只保留base站以内的链接
+        foreach($matches[1] as $href){
+            if(substr($href , 0 ,7) != 'http://'){
+                //检验是不是相对路径
+                $href = self::BASE .  $href;
+    }else if(!($this->checkHref($href , $len) && $this->isHrefBeen($href))){
+        //不是相对路径情况下，站外href不考虑
+        continue;
+    }
+    $this->getHtmlByUrl($href , $deep -1);
+    }
+    }
 
-                     //add the two handles
-                     curl_multi_add_handle($mh,$ch1);
-                     curl_multi_add_handle($mh,$ch2);
-                     $active = null;
-                     //execute the handles
-                    do {
-                         $mrc = curl_multi_exec($mh, $active);
-                    } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+    /**
+     * 检验是不是想要的站内链接
+     *
+     * @return boolen
+     */
+    protected function checkHref ($href , $len)
+    {
+        //其实这样不一定合适，因为二级域名也可以啊
+        if(substr($href , 0 , $len) === self::BASE){
+            //echo "相同域名";
+            return true;
+    }
+    return false;
+    }
 
-                    while ($active && $mrc == CURLM_OK) {
-                            do {
-                                $mrc = curl_multi_exec($mh, $active);
-                            } while ($mrc == CURLM_CALL_MULTI_PERFORM);
-                    }
-                     //close the handles
-                    $data2 = curl_multi_getcontent($ch2);
-                    $data1 = curl_multi_getcontent($ch1);
-                     curl_multi_remove_handle($mh, $ch1);
-                     curl_multi_remove_handle($mh, $ch2);
-                     curl_multi_close($mh);
-                }
-                /**
-                 * 设置一些初始化变量
-                 *
-                 */
-                protected function init()
-                {
-                    $this->imgPath = rtrim(dirname(__FILE__)  , '/') . "/image/";
-                }
-                public function __construct()
-                {
-                    $this->init();
-                    //$flag = $this->getHtmlByUrl("http://www.caoqun5566.com/bbs/", 2);
-                    $arr = array(
-                        "http://98.126.83.114/20140902/2agu4oqwdmj9369.jpg","http://98.126.83.114/20140902/wyn230rvq3m9372.jpg"
-                    );
-                    //$this->exampleCurlMulti($arr);
-                    $this->curl_multi($arr);
-                    //$this->getImage($arr[1]);
-                    //$this->getImage($arr[2]);
-                    //echo $this->getData('http://www.baidu.com');
-                }
-}
-                $image = new Image();
-                //$image->parseHTML("http://i.imgbox.com/5ktjnOJ1.jpg");
-                //$image->parseHTML("http://imgbox.com/g/UaL0aW4cQH");
-                //$image->parseHTML("./getImage.html");
-                //$image->getImage("http://c4.mangafiles.com/Files/Images/140/101335/imanhua_003.png");
-                //$image->getImage("http://www.w3school.com.cn/i/site_photoref.jpg");
+    /**
+     * curl的php.net样本拷贝
+     *
+     */
+    public function curl_multi($urls)
+    {
+        $mh = curl_multi_init();
+        // set URL and other appropriate options
+        for($i = 0,$len = count($urls);$i < $len;$i++){
+            $ch[$i] = curl_init();
+            curl_setopt($ch[$i], CURLOPT_URL,$urls[$i]);
+            curl_setopt($ch[$i], CURLOPT_HEADER, 0);
+            curl_setopt($ch[$i], CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch[$i],CURLOPT_RETURNTRANSFER,true);
+            //$this->curlOptSet($ch[$i]);
+            curl_multi_add_handle($mh,$ch[$i]);
+        }
+        //create the multiple cURL handle
+
+        //add the two handles
+        $active = null;
+        //execute the handles
+        do {
+            $mrc = curl_multi_exec($mh, $active);
+        } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+
+            while ($active && $mrc == CURLM_OK) {
+                do {
+                    $mrc = curl_multi_exec($mh, $active);
+                } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+            }
+    //close the handles
+            for($i = 0;$i < $len;$i++){
+                $data = curl_multi_getcontent($ch[$i]);
+                $this->saveImg($data ,$this->imgPath .  basename($urls[$i]));
+                curl_multi_remove_handle($mh, $ch[$i]);
+            }
+            curl_multi_close($mh);
+    }
+    /**
+     * 设置一些初始化变量
+     *
+     */
+    protected function init()
+    {
+        $this->imgPath = rtrim(dirname(__FILE__)  , '/') . "/image/";
+    }
+    public function __construct()
+    {
+        $this->init();
+        //$flag = $this->getHtmlByUrl("http://www.caoqun5566.com/bbs/", 2);
+        $arr = array("http://ui.narutom.com/images/cartoon/op_class.jpg", "http://ui.narutom.com/images/cartoon/lalala.jpg");
+        $this->curl_multi($arr);
+        //$this->getImage($arr[1]);
+        //$this->getImage($arr[2]);
+        //echo $this->getData('http://www.baidu.com');
+    }
+    }
+    $image = new Image();
+    //$image->parseHTML("http://i.imgbox.com/5ktjnOJ1.jpg");
+    //$image->parseHTML("http://imgbox.com/g/UaL0aW4cQH");
+    //$image->parseHTML("./getImage.html");
+    //$image->getImage("http://c4.mangafiles.com/Files/Images/140/101335/imanhua_003.png");
+    //$image->getImage("http://www.w3school.com.cn/i/site_photoref.jpg");
 ?>
