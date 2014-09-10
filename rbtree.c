@@ -1,81 +1,80 @@
 #include<string.h>
 #include<stdio.h>
 #define LENGTH 20000
-//这里定义的红黑树是左边小，右边大
+//ÕâÀï¶¨ÒåµÄºìºÚÊ÷ÊÇ×ó±ßÐ¡£¬ÓÒ±ß´ó
 struct treeNode{
     unsigned int hashValue;
-    //@todo 这里暂时使用数组代替，将来根据具体的数据，考虑使用链表优化
-    //保存http连接的最后十个字符，作为判重的标准
+    //@todo ÕâÀïÔÝÊ±Ê¹ÓÃÊý×é´úÌæ£¬½«À´¸ù¾Ý¾ßÌåµÄÊý¾Ý£¬¿¼ÂÇÊ¹ÓÃÁ´±íÓÅ»¯
+    //±£´æhttpÁ¬½ÓµÄ×îºóÊ®¸ö×Ö·û£¬×÷ÎªÅÐÖØµÄ±ê×¼
     char httpBack[3][10];
-    char color;// -1表示nil，0表示红，1表示黑
+    char color;// -1±íÊ¾nil£¬0±íÊ¾ºì£¬1±íÊ¾ºÚ
     int right,left, parent;
 }list[LENGTH];
-//表示list将要使用的下表
+int queue[LENGTH][2];
+//±íÊ¾list½«ÒªÊ¹ÓÃµÄÏÂ±í
 int listPos = 0,ROOT;
-//@todo 以后再考虑追加数组
+//@todo ÒÔºóÔÙ¿¼ÂÇ×·¼ÓÊý×é
 /**
- * time33算法，将字符串转化成为对应的int
- * @param	char *hash 需要转化的字符串
+ * time33Ëã·¨£¬½«×Ö·û´®×ª»¯³ÉÎª¶ÔÓ¦µÄint
+ * @param	char *hash ÐèÒª×ª»¯µÄ×Ö·û´®
  */
 unsigned int time33(char *hash){
     unsigned int ret = 0;
     while(*hash !='\0'){
         ret =( ret << 5) + ret + (*hash++);
     }
-    int tmp= (1 << 31) -1 ;
-    ret &=(1 << 31) -1;
+    ret &=(1 << 31) - 1;
     return ret;
 }
 /**
- * 左旋
- * @param	int		pos		关节节点
+ * ×óÐý
+ * @param	int		pos		¹Ø½Ú½Úµã
  */
 void rotateLeft(int parent){
 	int grandpa = list[parent].parent;
 	int n = list[parent].right;
-	//n和g 相互连接
+	//nºÍg Ïà»¥Á¬½Ó
 	if(grandpa != -1){
 		list[grandpa].left = n;
 	}
 	list[n].parent = grandpa;
-	//p和n的左节点互相交换
+	//pºÍnµÄ×ó½Úµã»¥Ïà½»»»
 	if(list[n].left!= -1){
 		list[list[n].left].parent = parent;
 	}
 	list[parent].right = list[n].left;
-	//n和p互相交换
+	//nºÍp»¥Ïà½»»»
 	list[parent].parent = n;
 	list[n].left = parent;
-
 }
 /**
- * 右旋
+ * ÓÒÐý
  *@param int parent
  */
 void rotateRight(int parent){
 	int grandpa = list[parent].parent;
 	int n = list[parent].left;
-	//n节点和祖父节点互相交换
+	//n½ÚµãºÍ×æ¸¸½Úµã»¥Ïà½»»»
 	if(grandpa != -1){
 		list[grandpa].right = n;
 	}
 	list[n].parent= grandpa;
-	//n右节点和p节点的互相交换
+	//nÓÒ½ÚµãºÍp½ÚµãµÄ»¥Ïà½»»»
 	list[parent].left = list[n].right ;
 	if(list[n].right != -1){
 		list[list[n].right].parent = parent;	
 	}
-	//n和p互相交换 
+	//nºÍp»¥Ïà½»»» 
 	list[n].right = parent;
 	list[parent].parent = n;
 }
 void rotate5(int pos){
 	int parent = list[pos].parent;
 	int grandpa = list[parent].parent;
-	//父节点变成黑色，祖父节点编程红色
+	//¸¸½Úµã±ä³ÉºÚÉ«£¬×æ¸¸½Úµã±à³ÌºìÉ«
     list[parent].color = 1;
     list[grandpa].color = 0;
-	//都是左节点的情况，右旋转
+	//¶¼ÊÇ×ó½ÚµãµÄÇé¿ö£¬ÓÒÐý×ª
     if(list[parent].left == pos && list[grandpa].left == parent){
         rotateRight(grandpa);
     }else{
@@ -83,87 +82,86 @@ void rotate5(int pos){
     }
 }
 /**
- *@param int  节点在树中的位置
+ *@param int  ½ÚµãÔÚÊ÷ÖÐµÄÎ»ÖÃ
  */
 void fixColor(int pos){
-    //第一种情况，父亲节点是黑色的，不用调整
-    //如果当前节点为根节点的情况,当祖父节点为-1，则父节点为跟节点，直接更改根节点为黑色，冲突解决
+    //µÚÒ»ÖÖÇé¿ö£¬¸¸Ç×½ÚµãÊÇºÚÉ«µÄ£¬²»ÓÃµ÷Õû
+    //Èç¹ûµ±Ç°½ÚµãÎª¸ù½ÚµãµÄÇé¿ö,µ±×æ¸¸½ÚµãÎª-1£¬Ôò¸¸½ÚµãÎª¸ú½Úµã£¬Ö±½Ó¸ü¸Ä¸ù½ÚµãÎªºÚÉ«£¬³åÍ»½â¾ö
     int parent = list[pos].parent,grandpa = list[parent].parent;
     if(pos == 0 ){
-		printf("这里不应该有什么进\n");
+		printf("ÕâÀï²»Ó¦¸ÃÓÐÊ²Ã´½ø\n");
 		list[pos].color = 1;
     }
 	if(parent == 0){
 		list[parent].color = -1;
         return;
 	}
-	//第二情况，父节点为黑色，不冲突
+	//µÚ¶þÇé¿ö£¬¸¸½ÚµãÎªºÚÉ«£¬²»³åÍ»
 	if(list[parent].color == 1)return;
 
 	int uncle ;
-	//查找叔叔节点
+	//²éÕÒÊåÊå½Úµã
     if(list[grandpa].right == parent){
          uncle = list[grandpa].left;
     }else{
         uncle = list[grandpa].right;
     }
-    printf("%d\n" , uncle);
-    //叔叔不为空，节点的颜色为红
+    //ÊåÊå²»Îª¿Õ£¬½ÚµãµÄÑÕÉ«Îªºì
     if(uncle != -1 && list[uncle].color == 0){
         list[uncle].color = 1;
         list[parent].color = 1;
         list[grandpa].color = 0;
         fixColor(grandpa);
     }else if(parent == list[grandpa].right && pos == list[parent].left){
-        //叔叔节点的颜色为黑或者是叶子节点,父亲为右节点，自己为左节点
+        //ÊåÊå½ÚµãµÄÑÕÉ«ÎªºÚ»òÕßÊÇÒ¶×Ó½Úµã,¸¸Ç×ÎªÓÒ½Úµã£¬×Ô¼ºÎª×ó½Úµã
         rotateRight(parent);
-		pos = list[pos].left;
+		pos = list[pos].right;
         //fixColor(parent);
     }else if(parent == list[grandpa].left && pos == list[parent].right){
         rotateLeft(parent);
-		pos = list[pos].right;
+		pos = list[pos].left;
     }
 	rotate5(pos);
 }
 
 /**
- * @param	int		hashValue	hash出来的数值
- * @param	char *	url			后10为字符
- * @param	int		pos			节点的位置
+ * @param	int		hashValue	hash³öÀ´µÄÊýÖµ
+ * @param	char *	url			ºó10Îª×Ö·û
+ * @param	int		pos			½ÚµãµÄÎ»ÖÃ
  */
 int rbtree(int hashValue , char *url, int pos){
-    //处理根目录和相同的情况
-	//进入叶子节点
+    //´¦Àí¸ùÄ¿Â¼ºÍÏàÍ¬µÄÇé¿ö
+	//½øÈëÒ¶×Ó½Úµã
     if(list[pos].color == -1){
         list[pos].hashValue = hashValue;
         list[pos].color = 0;
         int cnt = 0;
-        //查一下如何将字符串赋值给字符
+        //²éÒ»ÏÂÈçºÎ½«×Ö·û´®¸³Öµ¸ø×Ö·û
         while(*url !='\0'){
             list[pos].httpBack[0][cnt++] = *url++;
-			printf("%s\n" , list[pos].httpBack[0]);
+		//	printf("%s\n" , list[pos].httpBack[0]);
         }
-        //如果父节点也为红色，则矛盾发生
+        //Èç¹û¸¸½ÚµãÒ²ÎªºìÉ«£¬ÔòÃ¬¶Ü·¢Éú
         if(list[list[pos].parent].color == 0){
             fixColor(pos);
         }
 		return;
     }
-	//如果不是叶子节点，但是数值相同，处理冲突
+	//Èç¹û²»ÊÇÒ¶×Ó½Úµã£¬µ«ÊÇÊýÖµÏàÍ¬£¬´¦Àí³åÍ»
 	if(list[pos].hashValue == hashValue){
-		printf("发生了冲突\n");
+		printf("·¢ÉúÁË³åÍ»\n");
 		return;	
 	}
 	if(hashValue > list[pos].hashValue){
-        //大数字在右边
+        //´óÊý×ÖÔÚÓÒ±ß
 		if(list[pos].right == -1){
-			//如果左节点或者是右节点属于尚未分配的节点，将其与父关系声明
+			//Èç¹û×ó½Úµã»òÕßÊÇÓÒ½ÚµãÊôÓÚÉÐÎ´·ÖÅäµÄ½Úµã£¬½«ÆäÓë¸¸¹ØÏµÉùÃ÷
 			list[listPos].parent = pos;
 			list[pos].right = listPos++;
 		}
         rbtree(hashValue,url,list[pos].right);
     }else{
-        //小数字在左边
+        //Ð¡Êý×ÖÔÚ×ó±ß
 		if(list[pos].left == -1){
 			list[listPos].parent = pos;
 			list[pos].left = listPos++;	
@@ -171,27 +169,103 @@ int rbtree(int hashValue , char *url, int pos){
         rbtree(hashValue,url,list[pos].left);
     }
 }
+int findRoot(int node){
+	while(list[node].parent != -1){
+		node = list[node].parent;
+	}
+	return node;
+}
+/**
+ * µ±µ±Ç°½ÚµãÎªºìÉ«µÄÊ±ºò£¬¶Ô×Ó½Úµã½øÐÐµÄ¼ìÑé
+ */
+int redCheck(int pos ,int blackDeepth){
+	if(pos != -1 && list[pos].color != -1){
+		if(list[pos].color == 0)	{
+			printf("ÑÕÉ«²»¶Ô,¸¸½ÚµãºÍ×Ó½Úµã¶¼ÎªºìÉ«ÁË");
+			return -2;
+		}
+		//×Ó½ÚµãÎªÒ¶×Ó½Úµã£¬²»ÔÙ¼ÓÉî
+		if(list[pos].color == 1){
+			return deep(pos,blackDeepth);
+		}
+	}
+	return blackDeepth;
+}
+/**
+ * µÝ¹é¼ìÑéÊÇ²»ÊÇºìºÚÊ÷
+ * @param int pos			µ±Ç°½ÚµãµÄÎ»ÖÃ
+ * @param int blackDeepth	¾­ÀúµÄºÚ½ÚµãµÄÊýÄ¿
+ */
+int deep(int pos ,int blackDeepth){
+	int rightValue = 0,leftValue = 0;
+	//ºÚÉ«µÄ£¬²»ÓÃ¼Æ½Ï£¬Ö±½Ó+1
+	if(list[pos].color == 1){
+		if(list[pos].right != -1){
+			rightValue = deep(list[pos].right , blackDeepth + 1);
+		}
+		if(list[pos].left != -1){
+			leftValue = deep(list[pos].left , blackDeepth + 1);
+		}
+	}
+	if(list[pos].color == 0){
+		rightValue = redCheck(list[pos].left , blackDeepth);
+		leftValue = redCheck(list[pos].right , blackDeepth);
+	}
+	if(list[pos].color == -1){
+		printf("³öÏÖÁË²»Ó¦¸Ã³öÏÖµÄÇé¿ö£¬-1²»Ó¦¸Ã³öÏÖÔÚÕâÀï");
+		return -2;
+	}
+	if(rightValue && leftValue ){
+		return rightValue == leftValue ? leftValue : -2;
+	}
+	return rightValue | leftValue;
+}
+/**
+ * ¼ìÑéÊ÷ÊÇ²»ÊÇºìºÚÊ÷
+ */
+int checkIsRBtree(int root ){
+	int in = 0,out = 0;
+	if(list[root].color != 1){
+		printf("¸ù½ÚµãÃ»ÓÐÎªºÚÉ«");
+		return -2;
+	}
+	int value = deep(root ,1 );
+	if(value > 0){
+		;
+		//printf("ÊÇºìºÚÊ÷");
+	}else{
+		printf("error : %d\n", value);
+	}
+	return value;
+}
 int  main(){
-	int i;
-    char urls[10][100] = {
-        "a" , "aa" ,"aaa"
+	int i ,j;
+    char urls[10][10][100];
+	urls[0][10][100] = {
+        "a" , "aaa" ,"aa"
     };
     for(i = 0;i < LENGTH;i++){
         list[i].color =  -1;
         list[i].right =  -1;
         list[i].left =  -1;
     }
-	//预处理根节点为空的情况
+	//Ô¤´¦Àí¸ù½ÚµãÎª¿ÕµÄÇé¿ö
 	listPos = 0;	
 	list[listPos].color = 1;
 	list[listPos].hashValue = time33(urls[0]);
 	list[listPos].parent = -1;
-	listPos ++;
-    for(i = 1;i < 3;i++){
-        unsigned int tmp = time33(urls[i]);
-        printf("%d\n" , tmp);
-        rbtree(tmp,urls[i],0);
-    }
+	listPos++;
+	for(j=0;j < 1;j++){
+	    for(i = 1;i < 3;i++){
+    	    unsigned int tmp = time33(urls[j][i]);
+	       // printf("%d\n" , tmp);
+        	rbtree(tmp,urls[j][i],findRoot(0));
+    	}
+   	}
+	printf("root : %d\n" , findRoot(0));
+	if(checkIsRBtree(findRoot(0)) == -2){
+		printf("²»ÊÇºìºÚÊ÷");
+	}
     //cout << time33(hash)<< endl;
     return 0;
 }
