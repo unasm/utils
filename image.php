@@ -9,6 +9,7 @@
  *    @todo 练习php中的C扩展，保存已经获取过的链接不再进行解析
  *    @todo curl多个进程和单个进程的阻塞
  */
+define("TEST" , true);
 class Image {
 
     //最小允许的图片大小
@@ -132,17 +133,15 @@ class Image {
         {
             preg_match_all("/\<img[^>]+src\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$domStr , $matches);
             $imgs =  $this->checkImgUrl($matches[1]);
-            //多线程下载
-            $this->curl_multi($imgs);
-            //单线程下载
-            /*
-            foreach($imgs as $img){
-                if(!$this->getImage($img)){
-                    //error("{$img}没有保存成功");
-                    echo ("{$img}没有保存成功");
-                }
+            if(TEST){
+                $tmp = json_encode($imgs);
+                $fp = fopen("./imgs.txt" , "w") or die("can't open file imgs.txt");
+                fwrite($fp , $tmp);
+                fclose($fp);
             }
-             */
+            return $imgs;
+            //多线程下载
+            //单线程下载
         }
     /**
      * 检验图片before Download
@@ -189,10 +188,18 @@ class Image {
     public  function getHtmlByUrl($url , $deep)
     {
         if(!$deep)return ;
-        $data = $this->getData($url);
         //$data = file_get_contents($url ,FILE_USE_INCLUDE_PATH);
         //获取其中的图片
-        $this->getImgUrl($data);
+        $imgs = array();
+        if(TEST && file_exists("imgs.txt")){
+            $tmp = file_get_contents("imgs.txt" , true);
+            $imgs = json_decode($tmp);
+        }
+        if(empty($tmp)){
+            $data = $this->getData($url);
+            $imgs = $this->getImgUrl($data);
+        }
+        $this->curl_multi($imgs);
         return;
         //获取其中的链接，递归一次
         preg_match_all("/\<a\s+href\s*\=\s*[\'|\"]([^\'\"\>]+)[\'|\"][^>]*\>/",$data, $matches);
@@ -233,42 +240,49 @@ class Image {
     {
         $mh = curl_multi_init();
         // set URL and other appropriate options
-        $len = min(10,count($urls));
-        for($i = 0;$i < $len;$i++){
-            $ch[$i] = curl_init();
-            curl_setopt($ch[$i], CURLOPT_URL,$urls[$i]);
-            $this->curlOptSet($ch[$i]);
-            curl_multi_add_handle($mh,$ch[$i]);
-        }
-        //create the multiple cURL handle
 
+        //create the multiple cURL handle
+        $ch = curl_init();
+        //curl_setopt($ch[$i], CURLOPT_URL,$urls[$i]);
+        $this->curlOptSet($ch);
+        $_ch = array();
+        foreach($urls as $key => $url){
+            $_ch[$key] = curl_copy_handle($ch);
+            curl_setopt($_ch[$key], CURLOPT_URL,$urls[$key]);
+            //$this->curlOptSet($ch[$key]);
+            curl_multi_add_handle($mh,$_ch[$key]);
+        }
         //add the two handles
         $active = null;
         //execute the handles
-        do {
-            $mrc = curl_multi_exec($mh, $active);
-        } while ($mrc === CURLM_CALL_MULTI_PERFORM || $active);
-        while ($active && $mrc == CURLM_OK) {
-            if(curl_multi_select($mh) == -1){
-                ;
-            }
+        do{
+            $queue = array();
             do {
                 $mrc = curl_multi_exec($mh, $active);
-            } while ($mrc == CURLM_CALL_MULTI_PERFORM);
-            if($mhinfo = curl_multi_info_read($mh)){
-                if($mhinfo['result'] === CURLE_OK){
-
+            } while ($mrc === CURLM_CALL_MULTI_PERFORM);
+            while($active && $mrc == CURLM_OK){
+                if(curl_multi_select($mh) == -1){
+                    echo "-1 coming out";
                 }
+                    /*
+                do{
+                    $mrc = curl_multi_exec($mh , $active);
+                }while($mrc == CURLM_CALL_MULTI_PERFORM);
+                if($mhinfo = curl_multi_info_read($mh)){
+                    $ret = curl_multi_getcontent($mhinfo['handle']);
+                    $code = curl_getinfo($mhinfo['handle'] , CURLINFO_HTTP_CODE);
+                    echo $code;
+                    var_dump($ret);
+                    echo "\n\n";
+                    if($code !== 200){
+                        echo "wrong : " . $code. "\n";
+                    }
+                    curl_multi_remove_handle($mh , $mhinfo['handle']);
+                    curl_close($mhinfo['handle']);
+                }
+                     */
             }
-        }
-            //close the handles
-        for($i = 0;$i < $len;$i++){
-            $data = curl_multi_getcontent($ch[$i]);
-            $this->saveImg($data ,$this->imgPath .  basename($urls[$i]));
-            curl_multi_remove_handle($mh, $ch[$i]);
-            curl_close($ch[$i]);
-            echo $i . "\n";
-        }
+        }while(!empty($queue));
         curl_multi_close($mh);
     }
     /**
@@ -288,10 +302,5 @@ class Image {
         //$this->curl_multi($arr);
     }
 }
-    $image = new Image();
-    //$image->parseHTML("http://i.imgbox.com/5ktjnOJ1.jpg");
-    //$image->parseHTML("http://imgbox.com/g/UaL0aW4cQH");
-    //$image->parseHTML("./getImage.html");
-    //$image->getImage("http://c4.mangafiles.com/Files/Images/140/101335/imanhua_003.png");
-    //$image->getImage("http://www.w3school.com.cn/i/site_photoref.jpg");
+$image = new Image();
 ?>

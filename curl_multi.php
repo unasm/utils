@@ -91,7 +91,7 @@
                     do {
                         $mrc = curl_multi_exec($mh, $active);
                     } while ($mrc == CURLM_CALL_MULTI_PERFORM);
-             
+
                     //这里需要注意，如果发生了超时等异常情况，curl_multi_info_read函数有时会返回一个result=28(Timeout)的结果，有时直接返回false，也就是说该判断里关于超时的剩余逻辑将有可能不会被执行
                     if($mhinfo = curl_multi_info_read($mh)) {
                         $k = array_search($mhinfo['handle'], $_ch);
