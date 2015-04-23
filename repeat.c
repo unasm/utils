@@ -10,15 +10,16 @@
 #include<string.h>
 #include<math.h>
 #define LENGTH 10
-#define MAX 1048576
-#define strLen 10000
+#define MAX 104857
+#define strLen 11000
 //int hash[45000000000];
 struct arr{
 	struct arr  *next;
 	char flag;
 	long long  full;
 }hash[MAX];
-char buff[strLen][11];
+char *buff[strLen];
+//char buff[strLen][11];
 int getValue( char v){
 	if(v == 'A'){
 		return 0;	
@@ -56,7 +57,6 @@ char* revertStr(char *str){
 	}
 	return str;
 }
-/*
 char *decode(long long  value, int pos){
 	int cnt = 0;
 	char *buf = (char * )malloc(sizeof(char) * 12);
@@ -68,9 +68,10 @@ char *decode(long long  value, int pos){
 		buf[cnt++] = decodeValue(value % 4);
 		value /= 4;
 	}
-	return buf[pos];
+	return buf;
+	//return buf[pos];
 }
-*/
+/*
 char *decode(long long  value, int pos){
 	int cnt = 0;
 	for(int j = 0;j < LENGTH;j++){
@@ -83,6 +84,7 @@ char *decode(long long  value, int pos){
 	}
 	return revertStr(buff[pos]);
 }
+*/
 //有则加1，没有则添加到链表
 void checkInHash(int pos, long long full){
 	struct arr *pointer, *tail;
@@ -115,9 +117,9 @@ void checkInHash(int pos, long long full){
 char **findRepeatedDnaSequences(char *input, int *outputSize) {
 	unsigned i,afterhash;
 	long long value = 0;
-	struct arr *pointer;
+	struct arr *pointer, *tmp;
 	char **p;
-	p = (char **)malloc(sizeof(char*) * strLen);
+	//p = (char **)malloc(sizeof(char*) * strLen);
 	for(i = 0;i < MAX;i++){
 		hash[i].flag = 0;
 		hash[i].next = NULL;
@@ -143,20 +145,40 @@ char **findRepeatedDnaSequences(char *input, int *outputSize) {
 		pointer = &hash[i];
 		while(pointer != NULL ){
 			if(pointer->flag > 1){
-				p[*outputSize] = decode(pointer->full,*outputSize);
+				//p[*outputSize] = decode(pointer->full,*outputSize);
+				buff[*outputSize] = decode(pointer->full,*outputSize);
 				*outputSize += 1;
 			}
+			//tmp = pointer;	
 			pointer = pointer->next;
+			//free(tmp);
+		}
+		pointer = &hash[i];
+		int cnt = 0;
+		while(pointer != NULL ){
+			tmp = pointer;	
+			pointer = pointer->next;
+			if(cnt){
+				free(tmp);
+			}
+			cnt++;
 		}
 	}
+	/*
+	for(int i = 0;i < *outputSize; i++){
+		printf("%s\n", buff[i]);
+	}
+	*/
+	p = &buff[0];
+	//*p = buff[0];
 	return p;
 }
 int main(int argc, const char *argv[])
 {
-	char data[] = "CCGGCCGGCCGGCC", **res;
+	//char data[] = "CCGGCCGGCCGGCC", **res;
 	//char data[] = "AAAAAAAAAAA", **res;
 	//char data[] = "", **res;
-	//char data[] = "AAAAACCCCCAAAAACCCCCCAAAAAGGGTTT", **res;
+	char data[] = "AAAAACCCCCAAAAACCCCCCAAAAAGGGTTT", **res;
 	int output;
 	res = findRepeatedDnaSequences(data, &output)	;
 	//printf("%d\n", output);
