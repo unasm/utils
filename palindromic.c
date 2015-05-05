@@ -48,9 +48,12 @@ char* longestPalindrome(char* s) {
 			if (hash[sum] == -1){
 				if(i - last <= 2){
 					hash[sum] = i;
-				} else if (pos[last + 1] == pos[i]) {
+				} 
+				/* else if (pos[last + 1] == pos[i]) {
+					printf("strage\n");
 					hash[sum] = i;	
 				}
+				*/
 			} else if ( i - hash[sum] == 1 ) {
 				hash[sum] = i;
 			} 
