@@ -29,12 +29,14 @@ try:
         row = json.loads(line)
         if len(row) != lenTemplate:
             raise ValueError("数值不统一 line : %s , value : %s" % (linePos, line))
-
-        for key in row:
-            if not template.has_key(key):
+        tempBuf = []
+        for key in template:
+            if not row.has_key(key):
                 raise ValueError("异常key : %s , line : %s, value : %s" % (key, linePos, line))
+            tempBuf.append(row[key])
 
-        resStr += "\t" . join(row.values()) + "\n"
+        resStr += "\t" . join(tempBuf) + "\n"
+        #resStr += "\t" . join(row.values()) + "\n"
         linePos += 1
     #print resStr
     print resStr
